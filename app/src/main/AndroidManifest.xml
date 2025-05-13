@@ -12,18 +12,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PieChart"
         tools:targetApi="31">
-        <!-- Set ChartDisplayActivity as the launcher activity -->
+
         <activity
-            android:name=".ChartDisplayActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.PieChart">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
 
+        <activity
+            android:name=".ChartDisplayActivity"
+            android:exported="false"
+
+            android:theme="@style/Theme.PieChart" />
+    </application>
 </manifest>
