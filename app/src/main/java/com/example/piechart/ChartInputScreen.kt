@@ -36,13 +36,20 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
         )
     }
 
+
+
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        var sum = 0
+        var last = 0
         // Title and unit input fields
         OutlinedTextField(title, { title = it }, label = { Text("Chart Title") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(unit, { unit = it }, label = { Text("Unit (optional)") }, modifier = Modifier.fillMaxWidth())
@@ -68,32 +75,61 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
         }
 
         // Entry fields: category and value/percentage
-        entries.forEachIndexed { index, pairState ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = pairState.value.first,
-                    onValueChange = { pairState.value = pairState.value.copy(first = it) },
-                    label = { Text("Category") },
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
-                )
-                OutlinedTextField(
-                    value = pairState.value.second,
-                    onValueChange = { pairState.value = pairState.value.copy(second = it) },
-                    label = { Text(if (inputMode == InputMode.Percentage) "Percentage (%)" else "Value") },
-                    placeholder = { Text(if (inputMode == InputMode.Percentage) "e.g. 50" else "e.g. 200") },
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = { if (entries.size > 1) entries.removeAt(index) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+//        Column(
+//            modifier = modifier
+//                .fillMaxSize(),
+//        ) {
+            entries.forEachIndexed { index, pairState ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = pairState.value.first,
+                        onValueChange = { pairState.value = pairState.value.copy(first = it) },
+                        label = { Text("Category") },
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = pairState.value.second,
+                        onValueChange = { pairState.value = pairState.value.copy(second = it) },
+                        label = { Text(if (inputMode == InputMode.Percentage) "Percentage (%)" else "Value") },
+                        placeholder = { Text(if (inputMode == InputMode.Percentage) "e.g. 50" else "e.g. 200") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { if (entries.size > 1) entries.removeAt(index) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete")
+                    }
                 }
+                sum += pairState.value.second.text.toIntOrNull() ?: 0
+                last = 100 - sum
+
             }
+
+//        }
+
+        if (inputMode == InputMode.Percentage) {
+            OutlinedTextField(
+                value = TextFieldValue("$sum"),
+                onValueChange = { totalOverride = it },
+                label = { Text("Percentage (%)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        else{
+            OutlinedTextField(
+                value = TextFieldValue("$sum"),
+                onValueChange = { totalOverride = it },
+                label = { Text("Total Amount") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // Button to add new category entry
         Button(onClick = {
             val nextIndex = entries.size + 1
             val defaultName = TextFieldValue("Category $nextIndex")
-            entries.add(mutableStateOf(Pair(defaultName, TextFieldValue(""))))
+            val defaultVal = TextFieldValue(if (inputMode == InputMode.Percentage) "$last" else "Value")
+            entries.add(mutableStateOf(Pair(defaultName, defaultVal)))
+            val lastEntryState = entries.last()
+            lastEntryState.value = lastEntryState.value.copy(second = defaultVal)
         }) { Text("Add Category") }
 
         // Generate chart and launch display activity
