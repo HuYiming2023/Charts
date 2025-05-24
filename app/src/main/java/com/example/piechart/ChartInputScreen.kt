@@ -36,9 +36,6 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
         )
     }
 
-
-
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -48,23 +45,32 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        var sum = 0
-        var last = 0
-        // Title and unit input fields
-        OutlinedTextField(title, { title = it }, label = { Text("Chart Title") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(unit, { unit = it }, label = { Text("Unit (optional)") }, modifier = Modifier.fillMaxWidth())
+        // Chart title and unit input
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("Chart Title") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
-        // Select value or percentage mode
+        OutlinedTextField(
+            value = unit,
+            onValueChange = { unit = it },
+            label = { Text("Unit (optional)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Input mode selection
         Text("Input Type:")
         Row {
-            RadioButton(inputMode == InputMode.Value, { inputMode = InputMode.Value })
+            RadioButton(selected = inputMode == InputMode.Value, onClick = { inputMode = InputMode.Value })
             Text("Value")
             Spacer(Modifier.width(16.dp))
-            RadioButton(inputMode == InputMode.Percentage, { inputMode = InputMode.Percentage })
+            RadioButton(selected = inputMode == InputMode.Percentage, onClick = { inputMode = InputMode.Percentage })
             Text("Percentage")
         }
 
-        // Optional override for total in percentage mode
+        // Optional manual override for percentage total
         if (inputMode == InputMode.Percentage) {
             OutlinedTextField(
                 value = totalOverride,
@@ -74,71 +80,63 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             )
         }
 
-        // Entry fields: category and value/percentage
-//        Column(
-//            modifier = modifier
-//                .fillMaxSize(),
-//        ) {
-            entries.forEachIndexed { index, pairState ->
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = pairState.value.first,
-                        onValueChange = { pairState.value = pairState.value.copy(first = it) },
-                        label = { Text("Category") },
-                        modifier = Modifier.weight(1f).padding(end = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = pairState.value.second,
-                        onValueChange = { pairState.value = pairState.value.copy(second = it) },
-                        label = { Text(if (inputMode == InputMode.Percentage) "Percentage (%)" else "Value") },
-                        placeholder = { Text(if (inputMode == InputMode.Percentage) "e.g. 50" else "e.g. 200") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = { if (entries.size > 1) entries.removeAt(index) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete")
-                    }
+        // Category and value/percentage input rows
+        entries.forEachIndexed { index, pairState ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = pairState.value.first,
+                    onValueChange = { pairState.value = pairState.value.copy(first = it) },
+                    label = { Text("Category") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                )
+                OutlinedTextField(
+                    value = pairState.value.second,
+                    onValueChange = { pairState.value = pairState.value.copy(second = it) },
+                    label = { Text(if (inputMode == InputMode.Percentage) "Percentage (%)" else "Value") },
+                    placeholder = { Text(if (inputMode == InputMode.Percentage) "e.g. 50" else "e.g. 200") },
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { if (entries.size > 1) entries.removeAt(index) }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete")
                 }
-                sum += pairState.value.second.text.toIntOrNull() ?: 0
-                last = 100 - sum
-
             }
-
-//        }
-
-        if (inputMode == InputMode.Percentage) {
-            OutlinedTextField(
-                value = TextFieldValue("$sum"),
-                onValueChange = { totalOverride = it },
-                label = { Text("Percentage (%)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        else{
-            OutlinedTextField(
-                value = TextFieldValue("$sum"),
-                onValueChange = { totalOverride = it },
-                label = { Text("Total Amount") },
-                modifier = Modifier.fillMaxWidth()
-            )
         }
 
-        // Button to add new category entry
-        Button(onClick = {
-            val nextIndex = entries.size + 1
-            val defaultName = TextFieldValue("Category $nextIndex")
-            val defaultVal = TextFieldValue(if (inputMode == InputMode.Percentage) "$last" else "Value")
-            entries.add(mutableStateOf(Pair(defaultName, defaultVal)))
-            val lastEntryState = entries.last()
-            lastEntryState.value = lastEntryState.value.copy(second = defaultVal)
-        }) { Text("Add Category") }
+        // Button to add new category row
+        Button(
+            onClick = {
+                val nextIndex = entries.size + 1
+                val defaultName = TextFieldValue("Category $nextIndex")
+                val defaultVal = TextFieldValue("") // Empty, not pre-filled with "Value"
+                entries.add(mutableStateOf(Pair(defaultName, defaultVal)))
+            }
+        ) {
+            Text("Add Category")
+        }
 
-        // Generate chart and launch display activity
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Show calculated sum after "Add Category"
+        val sum = entries.sumOf { it.value.second.text.toDoubleOrNull() ?: 0.0 }
+        OutlinedTextField(
+            value = TextFieldValue(sum.toString()),
+            onValueChange = {},
+            enabled = false,
+            label = {
+                Text(if (inputMode == InputMode.Percentage) "Percentage Total (%)" else "Total Amount")
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Button to generate and launch chart
         Button(
             onClick = {
                 val titleText = title.text
                 val unitText = unit.text
 
-                // Parse and validate input entries
+                // Parse entries
                 val parsedEntries = entries.mapNotNull {
                     val name = it.value.first.text.trim()
                     val valueText = it.value.second.text.trim().replace("%", "")
@@ -151,7 +149,7 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                     return@Button
                 }
 
-                // Ensure percentages sum to 100 if in percentage mode
+                // Percentage mode: must sum to 100
                 if (inputMode == InputMode.Percentage) {
                     val total = parsedEntries.sumOf { it.value }
                     if (total != 100.0) {
@@ -166,14 +164,16 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                         val total = parsedEntries.sumOf { it.value }
                         parsedEntries.map { ChartEntry(it.category, (it.value / total) * 100.0) }
                     }
+                    else -> parsedEntries // fallback for exhaustiveness
                 }
 
                 val totalAmount = when (inputMode) {
                     InputMode.Value -> finalEntries.sumOf { it.value }
                     InputMode.Percentage -> totalOverride.text.toDoubleOrNull() ?: 100.0
+                    else -> 100.0
                 }
 
-                // Pass data to ChartDisplayActivity
+                // Launch chart activity
                 val intent = Intent(context, ChartDisplayActivity::class.java).apply {
                     putExtra("chart_title", titleText)
                     putExtra("chart_unit", unitText)
@@ -183,8 +183,11 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
 
                 context.startActivity(intent)
             },
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
-        ) { Text("Generate Chart") }
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Generate Chart")
+        }
     }
 }
-
