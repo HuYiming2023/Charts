@@ -1,35 +1,44 @@
 package com.example.piechart
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import com.example.piechart.ui.theme.PieChartTheme
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.ui.graphics.Color
+import com.google.gson.Gson
+import java.io.File
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 
-// Activity that displays the pie chart with parsed data from intent
+
+
+
 class ChartDisplayActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        // Get data passed from input screen
         val chartTitle = intent.getStringExtra("chart_title") ?: "Chart"
         val chartUnit = intent.getStringExtra("chart_unit") ?: ""
         val chartTotal = intent.getDoubleExtra("chart_total", 100.0)
+        val chartType = intent.getStringExtra("chart_type")?.let { ChartType.valueOf(it) } ?: ChartType.Pie
         val entryStrings = intent.getStringArrayListExtra("entries") ?: arrayListOf()
 
-        // Parse string into list of ChartEntry
         val entries = entryStrings.mapNotNull {
             val parts = it.split(":")
             if (parts.size == 2) {
@@ -39,7 +48,6 @@ class ChartDisplayActivity : ComponentActivity() {
             } else null
         }
 
-        // Assign unique color to each category
         val availableColors = listOf(
             Color(0xFFEF5350), Color(0xFFAB47BC), Color(0xFF42A5F5),
             Color(0xFF26A69A), Color(0xFFFFCA28), Color(0xFFFF7043),
@@ -64,18 +72,98 @@ class ChartDisplayActivity : ComponentActivity() {
             entries = entries
         )
 
-        // Render pie chart with theme
+
         setContent {
             PieChartTheme {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(WindowInsets.systemBars.asPaddingValues()),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    PieChartHost(data = chartData, style = style)
+
+                if (chartType == ChartType.Pie3DWeb) {
+                    var launched by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(Unit) {
+                        if (!launched) {
+                            launched = true
+                            launch3DPieChartViaBrowser(this@ChartDisplayActivity, entries)
+                            delay(1500)
+                            finish()
+                        }
+                    }
+
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = "3D Web chart opened in browser.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                    }
+
+                } else {
+
+                    PieChartHost(
+                        data = chartData,
+                        style = style,
+                        chartType = chartType,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    )
                 }
             }
         }
     }
+}
+
+fun launch3DPieChartViaBrowser(context: Context, entries: List<ChartEntry>) {
+
+//    Log.d("ChartDebug", "Launching HTML at: ${file.absolutePath}")
+    val dataJson = Gson().toJson(entries.map { mapOf("x" to it.category, "value" to it.value) })
+
+    val html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>3D Pie Chart</title>
+            <script src="https://cdn.anychart.com/releases/v8/js/anychart-bundle.min.js"></script>
+            <style>
+                html, body { margin: 0; padding: 0; background: white; }
+                #container { width: 100%; height: 100vh; }
+            </style>
+        </head>
+        <body>
+        <div id="container"></div>
+        <script>
+            var data = $dataJson;
+
+            var chart = anychart.pie3d(data);
+            chart.innerRadius("0%");
+            chart.startAngle(0);
+            chart.labels()
+                .position("outside")
+                .format("{%x}: {%value} ({%percentValue}%)")
+                .fontSize(14)
+                .fontColor("#333");
+            chart.legend(true);
+            chart.height("100%");
+            chart.container("container");
+            chart.draw();
+        </script>
+        </body>
+        </html>
+    """.trimIndent()
+
+    val file = File(context.cacheDir, "chart3d.html")
+    file.writeText(html)
+
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(Uri.fromFile(file), "text/html")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    context.startActivity(Intent.createChooser(intent, "Open 3D Pie Chart"))
 }

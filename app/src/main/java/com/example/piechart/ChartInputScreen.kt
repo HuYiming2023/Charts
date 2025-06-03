@@ -1,9 +1,11 @@
 package com.example.piechart
 
 import android.content.Intent
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -11,15 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
-// Enum for input modes: raw value or percentage
 enum class InputMode {
     Value, Percentage
 }
 
-// Screen for inputting chart title, categories, and values
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChartInputScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -28,8 +30,10 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
     var unit by remember { mutableStateOf(TextFieldValue("€")) }
     var inputMode by remember { mutableStateOf(InputMode.Value) }
     var totalOverride by remember { mutableStateOf(TextFieldValue("")) }
+    var chartType by remember { mutableStateOf(ChartType.Pie) }
+    val chartTypes = ChartType.values()
+    var expanded by remember { mutableStateOf(false) }
 
-    // Dynamic list of entries for user input
     val entries = remember {
         mutableStateListOf(
             mutableStateOf(Pair(TextFieldValue("Category 1"), TextFieldValue("")))
@@ -45,7 +49,6 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             .statusBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Chart title and unit input
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
@@ -60,7 +63,6 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Input mode selection
         Text("Input Type:")
         Row {
             RadioButton(selected = inputMode == InputMode.Value, onClick = { inputMode = InputMode.Value })
@@ -70,17 +72,16 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             Text("Percentage")
         }
 
-        // Optional manual override for percentage total
         if (inputMode == InputMode.Percentage) {
             OutlinedTextField(
                 value = totalOverride,
                 onValueChange = { totalOverride = it },
                 label = { Text("Total Amount (optional)") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         }
 
-        // Category and value/percentage input rows
         entries.forEachIndexed { index, pairState ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -96,6 +97,7 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                     onValueChange = { pairState.value = pairState.value.copy(second = it) },
                     label = { Text(if (inputMode == InputMode.Percentage) "Percentage (%)" else "Value") },
                     placeholder = { Text(if (inputMode == InputMode.Percentage) "e.g. 50" else "e.g. 200") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = { if (entries.size > 1) entries.removeAt(index) }) {
@@ -104,21 +106,13 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        // Button to add new category row
-        Button(
-            onClick = {
-                val nextIndex = entries.size + 1
-                val defaultName = TextFieldValue("Category $nextIndex")
-                val defaultVal = TextFieldValue("") // Empty, not pre-filled with "Value"
-                entries.add(mutableStateOf(Pair(defaultName, defaultVal)))
-            }
-        ) {
+        Button(onClick = {
+            val nextIndex = entries.size + 1
+            entries.add(mutableStateOf(Pair(TextFieldValue("Category $nextIndex"), TextFieldValue(""))))
+        }) {
             Text("Add Category")
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Show calculated sum after "Add Category"
         val sum = entries.sumOf { it.value.second.text.toDoubleOrNull() ?: 0.0 }
         OutlinedTextField(
             value = TextFieldValue(sum.toString()),
@@ -130,13 +124,45 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Button to generate and launch chart
+        Text("Chart Type:")
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                readOnly = true,
+                value = chartType.name,
+                onValueChange = {},
+                label = { Text("Select Chart Type") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                chartTypes.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type.name) },
+                        onClick = {
+                            chartType = type
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
         Button(
             onClick = {
+                Toast.makeText(context, "Generate chart clicked", Toast.LENGTH_SHORT).show()
+                Log.d("ChartDebug", "Generate chart clicked")
+
                 val titleText = title.text
                 val unitText = unit.text
 
-                // Parse entries
                 val parsedEntries = entries.mapNotNull {
                     val name = it.value.first.text.trim()
                     val valueText = it.value.second.text.trim().replace("%", "")
@@ -144,12 +170,14 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                     if (name.isNotEmpty() && rawValue != null) ChartEntry(name, rawValue) else null
                 }
 
+                Log.d("ChartDebug", "Parsed entries = $parsedEntries")
+
+
                 if (parsedEntries.isEmpty()) {
                     Toast.makeText(context, "Please enter at least one valid entry", Toast.LENGTH_SHORT).show()
                     return@Button
                 }
 
-                // Percentage mode: must sum to 100
                 if (inputMode == InputMode.Percentage) {
                     val total = parsedEntries.sumOf { it.value }
                     if (total != 100.0) {
@@ -164,20 +192,18 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                         val total = parsedEntries.sumOf { it.value }
                         parsedEntries.map { ChartEntry(it.category, (it.value / total) * 100.0) }
                     }
-                    else -> parsedEntries // fallback for exhaustiveness
                 }
 
                 val totalAmount = when (inputMode) {
                     InputMode.Value -> finalEntries.sumOf { it.value }
                     InputMode.Percentage -> totalOverride.text.toDoubleOrNull() ?: 100.0
-                    else -> 100.0
                 }
 
-                // Launch chart activity
                 val intent = Intent(context, ChartDisplayActivity::class.java).apply {
                     putExtra("chart_title", titleText)
                     putExtra("chart_unit", unitText)
                     putExtra("chart_total", totalAmount)
+                    putExtra("chart_type", chartType.name)
                     putStringArrayListExtra("entries", ArrayList(finalEntries.map { "${it.category}:${it.value}" }))
                 }
 
