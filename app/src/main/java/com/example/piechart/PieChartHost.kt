@@ -10,8 +10,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,35 +19,38 @@ fun PieChartHost(
     chartType: ChartType,
     modifier: Modifier = Modifier
 ) {
-    var selectedIndex by remember { mutableStateOf(-1) }
+
     var currentType by remember { mutableStateOf(chartType) }
-    val chartTypes = ChartType.values()
+    var selectedIndex by remember { mutableStateOf(-1) }
     var expanded by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.Top,
+        modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        Text(text = data.title, style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(16.dp))
+
+
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = !expanded },
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.fillMaxWidth(0.8f)
         ) {
             OutlinedTextField(
-                readOnly = true,
                 value = currentType.name,
                 onValueChange = {},
+                readOnly = true,
                 label = { Text("Chart Type") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(0.8f)
+                modifier = Modifier.menuAnchor().fillMaxWidth()
             )
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                chartTypes.forEach { type ->
+                ChartType.values().forEach { type ->
                     DropdownMenuItem(
                         text = { Text(type.name) },
                         onClick = {
@@ -60,93 +61,57 @@ fun PieChartHost(
                 }
             }
         }
-
-        Text(text = data.title, fontSize = 18.sp, color = Color(0xFF222222))
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        Spacer(modifier = Modifier.height(16.dp))
+           Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (currentType) {
                 ChartType.Pie -> PieChartRenderer(
-                    data = data,
-                    style = style,
-                    selectedIndex = selectedIndex,
+                    data = data, style = style, selectedIndex = selectedIndex,
                     onSectorSelected = { selectedIndex = it },
                     modifier = Modifier.fillMaxSize()
                 )
-
                 ChartType.Donut -> DonutChartRenderer(
-                    data = data,
-                    style = style,
-                    selectedIndex = selectedIndex,
+                    data = data, style = style, selectedIndex = selectedIndex,
                     onSectorSelected = { selectedIndex = it },
                     modifier = Modifier.fillMaxSize()
                 )
-
-                ChartType.Pie3D -> Pie3DChartRenderer(
-                    data = data,
-                    style = style,
-                    selectedIndex = selectedIndex,
-                    onSectorSelected = { selectedIndex = it },
+//                ChartType.Pie3D -> Pie3DChartRenderer(
+//                    data = data, style = style, selectedIndex = selectedIndex,
+//                    onSectorSelected = { selectedIndex = it },
+//
+//                    modifier = Modifier.fillMaxSize()
+//                )
+                ChartType.Pie3DWeb -> AnyChart3DPieView(
+                    entries = data.entries,
                     modifier = Modifier.fillMaxSize()
                 )
-
-//                ChartType.Pie3DWeb -> {
-//                    val context = LocalContext.current
-//                    LaunchedEffect(Unit) {
-//                        launch3DPieChartViaBrowser(context, data.entries)
-//                    }
-//                }
-
-                ChartType.Pie3DWeb -> {
-                    Text(
-                        text = "3D Web chart opened in browser.",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
             }
-
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Total Value: ${String.format(Locale.US, "%.2f", data.totalAmount)}${style.unit}",
-            fontSize = 16.sp,
-            color = Color(0xFF333333)
-        )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            data.entries.forEachIndexed { index, entry ->
-                val color = style.categoryColors[entry.category] ?: Color.Gray
-                val percentage = (entry.value / data.totalAmount * 100).toInt()
-                val isSelected = index == selectedIndex
-
-                val displayText = "${entry.value.toInt()}${style.unit} ($percentage%) ${entry.category}" +
-                        if (isSelected && currentType != ChartType.Pie3DWeb) " – Selected" else ""
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .background(color)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = displayText, fontSize = 14.sp, color = Color(0xFF333333))
+        if (currentType != ChartType.Pie3DWeb) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Total: ${String.format(Locale.US, "%.2f", data.totalAmount)}${style.unit}",
+                fontSize = 16.sp, color = Color(0xFF333333)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                data.entries.forEachIndexed { index, entry ->
+                    val color = style.categoryColors[entry.category] ?: Color.Gray
+                    val percentage = if (data.totalAmount > 0) (entry.value / data.totalAmount * 100).toInt() else 0
+                    val label = "${entry.value.toInt()}${style.unit} ($percentage%) ${entry.category}"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        Box(modifier = Modifier.size(12.dp).background(color))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = label, fontSize = 14.sp, color = Color(0xFF333333))
+                    }
                 }
             }
         }

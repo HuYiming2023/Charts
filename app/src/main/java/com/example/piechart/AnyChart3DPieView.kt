@@ -21,13 +21,13 @@ fun AnyChart3DPieView(
 ) {
     val context = LocalContext.current
 
-    // Convert entries to JSON for WebView
+
     val dataJson = remember(entries) {
         val data = entries.map { mapOf("x" to it.category, "value" to it.value) }
         Gson().toJson(data)
     }
 
-    // Track WebView so we can call JS later
+
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
 
     AndroidView(
@@ -37,11 +37,11 @@ fun AnyChart3DPieView(
                 settings.javaScriptEnabled = true
                 webChromeClient = WebChromeClient()
                 webViewClient = object : WebViewClient() {
+
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        val escapedJson = JSONObject.quote(dataJson)
-                        Log.d("ChartDebug", "onPageFinished called")
-                        Log.d("ChartDebug", "WebView loaded, injecting data: $escapedJson")
-                        evaluateJavascript("setData($escapedJson);", null)
+                        val script = "setData(${JSONObject.quote(dataJson)});"
+                        Log.d("ChartDebug", "WebView loaded, executing script: $script")
+                        view?.evaluateJavascript(script, null)
                     }
                 }
 
@@ -52,3 +52,5 @@ fun AnyChart3DPieView(
         modifier = modifier
     )
 }
+
+
