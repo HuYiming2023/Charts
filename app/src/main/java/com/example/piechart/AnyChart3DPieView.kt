@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 
@@ -22,35 +24,30 @@ fun AnyChart3DPieView(
     val context = LocalContext.current
 
 
-    val dataJson = remember(entries) {
-        val data = entries.map { mapOf("x" to it.category, "value" to it.value) }
-        Gson().toJson(data)
+    val dataJson by produceState<String?>(initialValue = null, entries) {
+        value = withContext(Dispatchers.Default) {
+            val data = entries.map { mapOf("x" to it.category, "value" to it.value) }
+            Gson().toJson(data)
+        }
     }
-
-
-    val webViewRef = remember { mutableStateOf<WebView?>(null) }
 
     AndroidView(
         factory = {
             WebView(context).apply {
-                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                 settings.javaScriptEnabled = true
                 webChromeClient = WebChromeClient()
-                webViewClient = object : WebViewClient() {
-
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        val script = "setData(${JSONObject.quote(dataJson)});"
-                        Log.d("ChartDebug", "WebView loaded, executing script: $script")
-                        view?.evaluateJavascript(script, null)
-                    }
-                }
-
+                webViewClient = WebViewClient()
                 loadUrl("file:///android_asset/chart.html")
-                webViewRef.value = this
+            }
+        },
+        update = { webView ->
+
+            dataJson?.let { json ->
+                val script = "updateData(${JSONObject.quote(json)});"
+                Log.d("ChartDebug", "Data updated, executing script: $script")
+                webView.evaluateJavascript(script, null)
             }
         },
         modifier = modifier
     )
 }
-
-

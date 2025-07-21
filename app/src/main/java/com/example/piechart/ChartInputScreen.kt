@@ -1,4 +1,3 @@
-
 package com.example.piechart
 
 import android.content.Intent
@@ -16,8 +15,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
 
-
+enum class InputMode {
+    Value,
+    Percentage
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +32,7 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
     var inputMode by remember { mutableStateOf(InputMode.Value) }
     var totalOverride by remember { mutableStateOf(TextFieldValue("")) }
     var chartType by remember { mutableStateOf(ChartType.Pie) }
-    val chartTypes = ChartType.values()// 假设Pie3D是原生Canvas，可能也需要单独处理
+    val chartTypes = ChartType.values()
     var expanded by remember { mutableStateOf(false) }
 
     val entries = remember {
@@ -38,20 +41,19 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
         )
     }
 
-
     val sum by remember(entries) {
         derivedStateOf {
             entries.sumOf { it.value.second.text.toDoubleOrNull() ?: 0.0 }
         }
     }
 
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-            .imePadding(), // 使用 .imePadding() 替代 Accompanist
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         OutlinedTextField(
             value = title,
@@ -127,14 +129,15 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
         )
 
         Text("Chart Type:")
-             ExposedDropdownMenuBox(
+        ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { expanded = !expanded },
-                     modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .menuAnchor(),
                 readOnly = true,
                 value = chartType.name,
                 onValueChange = {},
@@ -156,7 +159,6 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
-
 
         Button(
             onClick = {
@@ -201,9 +203,4 @@ fun ChartInputScreen(modifier: Modifier = Modifier) {
             Text("Generate Chart")
         }
     }
-}
-
-enum class InputMode {
-    Value,
-    Percentage
 }

@@ -21,31 +21,28 @@
 <script>
     var chart;
 
+    anychart.onDocumentReady(function () {
 
-    function setData(jsonString) {
+        chart = anychart.pie3d();
+        chart.innerRadius("0%");
+        chart.startAngle(0);
+        chart.labels()
+            .position("outside")
+            .format("{%x}: {%value} ({%percentValue}%)")
+            .fontSize(14)
+            .fontColor("#333");
+        chart.legend(false);
+        chart.container("container");
+        chart.background().enabled(false);
+        chart.draw();
+    });
 
-        anychart.onDocumentReady(function () {
 
-            var data = JSON.parse(jsonString);
-
-
-            if (chart) {
-                chart.data(data);
-            } else {
-                chart = anychart.pie3d(data);
-                chart.innerRadius("0%");
-                chart.startAngle(0);
-                chart.labels()
-                    .position("outside")
-                    .format("{%x}: {%value} ({%percentValue}%)")
-                    .fontSize(14)
-                    .fontColor("#333");
-                chart.legend(false);
-                chart.container("container");
-                chart.background().enabled(false);
-                chart.draw();
-            }
-        });
+    function updateData(jsonString) {
+        var data = JSON.parse(jsonString);
+        if (chart) {
+            chart.data(data);
+        }
     }
 </script>
 </body>
