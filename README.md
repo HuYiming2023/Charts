@@ -63,13 +63,6 @@ An Android application built with **Jetpack Compose** for visualizing **custom p
 
 ---
 
-## 🛠️ Future Improvements
-
-- Improve label overlap handling
-- Add click-to-toggle label visibility
-- Add 3D pie charts and donut charts
-- Animate sector rendering
-- Achieve the chart effects with different data sources
 
 ---
 
